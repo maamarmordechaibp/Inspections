@@ -2,6 +2,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
+const BRAND_APP_URL = Deno.env.get("BRAND_APP_URL") || "https://new.maamarmordechai.org";
+const BRAND_LOGO_URL = Deno.env.get("BRAND_LOGO_URL") || `${BRAND_APP_URL.replace(/\/$/, "")}/logo-email.svg`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,40 +75,60 @@ serve(async (req: Request) => {
     }).format(total || 0);
 
     const htmlBody = `
-      <div style="font-family: Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 32px 20px;">
-        <div style="background: #0a1628; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-          <h1 style="color: #F5C518; margin: 0; font-size: 24px;">DouseFire</h1>
-        </div>
-        <div style="background: #ffffff; border: 1px solid #e5e7eb; border-top: none; padding: 32px 24px; border-radius: 0 0 12px 12px;">
-          <h2 style="color: #111827; font-size: 18px; margin: 0 0 8px;">Invoice ${invoice_number} — Payment Request</h2>
-          <p style="color: #6b7280; font-size: 14px; margin: 0 0 24px; line-height: 1.6;">
-            Hello${customer_name ? ' ' + customer_name : ''},<br/><br/>
-            Your invoice <strong>${invoice_number}</strong> for <strong>${formattedTotal}</strong> is ready for payment. Please use the secure link below to view and pay your invoice online.
-          </p>
-
-          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-            <table style="width: 100%; border-collapse: collapse;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f1f5f9;padding:28px 12px;font-family:Montserrat,Arial,sans-serif;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dbe3ee;box-shadow:0 10px 30px rgba(10,22,40,0.08);">
               <tr>
-                <td style="padding: 4px 0; font-size: 14px; color: #6b7280;">Invoice</td>
-                <td style="padding: 4px 0; font-size: 14px; color: #111827; font-weight: 600; text-align: right;">${invoice_number}</td>
+                <td style="background:#0a1628;background-image:linear-gradient(135deg,#0a1628 0%,#12294a 100%);padding:26px 30px;text-align:center;">
+                  <img src="${BRAND_LOGO_URL}" alt="DouseFire" width="210" style="display:block;border:0;outline:none;text-decoration:none;margin:0 auto 12px;max-width:100%;height:auto;" />
+                  <div style="font-size:13px;color:#dbe7f5;letter-spacing:0.6px;">FIRE INSPECTION PLATFORM</div>
+                </td>
               </tr>
               <tr>
-                <td style="padding: 4px 0; font-size: 14px; color: #6b7280;">Amount Due</td>
-                <td style="padding: 4px 0; font-size: 18px; color: #111827; font-weight: 700; text-align: right;">${formattedTotal}</td>
+                <td style="padding:30px 30px 18px;color:#111827;">
+                  <div style="display:inline-block;background:#eff6ff;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:0.4px;border-radius:999px;padding:6px 12px;margin-bottom:14px;">PAYMENT REQUEST</div>
+                  <h2 style="margin:0 0 10px;font-size:26px;line-height:1.2;color:#0f172a;">Invoice ${invoice_number}</h2>
+                  <p style="margin:0 0 20px;font-size:15px;line-height:1.75;color:#475569;">
+                    Hello${customer_name ? ` ${customer_name}` : ''}, your invoice is ready for payment. Use the secure button below to complete payment online.
+                  </p>
+
+                  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:16px;margin-bottom:24px;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
+                      <tr>
+                        <td style="padding:4px 0;font-size:13px;color:#64748b;">Invoice</td>
+                        <td style="padding:4px 0;font-size:13px;color:#111827;font-weight:700;text-align:right;">${invoice_number}</td>
+                      </tr>
+                      <tr>
+                        <td style="padding:4px 0;font-size:13px;color:#64748b;">Amount Due</td>
+                        <td style="padding:4px 0;font-size:22px;color:#0f172a;font-weight:800;text-align:right;">${formattedTotal}</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                  <table role="presentation" cellspacing="0" cellpadding="0" style="margin:0 0 18px;">
+                    <tr>
+                      <td>
+                        <a href="${payment_url}" style="display:inline-block;background:#f5c518;color:#0a1628;text-decoration:none;font-weight:800;font-size:14px;padding:13px 20px;border-radius:10px;letter-spacing:0.2px;">Pay Invoice Now</a>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <p style="margin:0;font-size:12px;line-height:1.75;color:#64748b;word-break:break-all;">Secure payment link: ${payment_url}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:16px 30px 20px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+                  <p style="margin:0;font-size:11px;line-height:1.8;color:#64748b;">
+                    DouseFire Billing Team<br/>
+                    Questions? Visit ${BRAND_APP_URL}
+                  </p>
+                </td>
               </tr>
             </table>
-          </div>
-
-          <a href="${payment_url}" style="display: block; background: #F5C518; color: #ffffff; text-decoration: none; text-align: center; padding: 14px 24px; border-radius: 8px; font-weight: 600; font-size: 15px;">
-            Pay Invoice Now
-          </a>
-
-          <p style="color: #9ca3af; font-size: 12px; margin: 20px 0 0; text-align: center;">
-            This is a secure payment link. Card details are encrypted and never stored on our servers.<br/>
-            If you have questions, please contact DouseFire support.
-          </p>
-        </div>
-      </div>
+          </td>
+        </tr>
+      </table>
     `;
 
     const textBody = `DouseFire — Payment Request\n\nInvoice ${invoice_number}\nAmount Due: ${formattedTotal}\n\nPay online at: ${payment_url}\n\nThis is a secure payment link. Card details are encrypted and never stored on our servers.`;
