@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overscroll-behavior: none;
+}
+
+/* Mobile safe area padding for bottom nav */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 8px);
+}
+
+/* Touch-friendly tap targets */
+@media (max-width: 1023px) {
+  button, a, [role="button"] {
+    min-height: 36px;
+  }
+}
+
+/* Horizontal scroll containers for mobile tables */
+.table-scroll {
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.table-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
