@@ -4,6 +4,7 @@ import DashboardLayout from '@/components/feature/DashboardLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
 import { mockInspections } from '@/mocks/inspections';
+import EmptyState from '@/components/base/EmptyState';
 
 interface TechLoad {
   id: string;
@@ -357,6 +358,14 @@ export default function DispatchPage() {
         ) : (
           <div className="space-y-4">
             {/* Unassigned jobs — drag source area */}
+            {unassigned.length === 0 && !loading && (
+              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+                <span className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <i className="ri-checkbox-circle-line text-emerald-600"></i>
+                </span>
+                <p className="text-sm font-medium text-emerald-800">All jobs are assigned — nothing waiting for a technician.</p>
+              </div>
+            )}
             {unassigned.length > 0 && (
               <div className="bg-red-50/50 border-2 border-dashed border-red-200 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3">
@@ -421,6 +430,13 @@ export default function DispatchPage() {
             )}
 
             {/* Tech workload cards */}
+            {techLoads.length === 0 ? (
+              <EmptyState
+                icon="ri-team-line"
+                title="No technicians available"
+                description="Add team members in the Users section to start assigning and dispatching jobs."
+              />
+            ) : (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {techLoads.map((tech) => (
                 <div
@@ -569,6 +585,7 @@ export default function DispatchPage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
       </div>

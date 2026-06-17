@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import DashboardLayout from '@/components/feature/DashboardLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
+import { useToast } from '@/context/ToastContext';
 import { computeChecklistSummary, type ChecklistItem } from '@/mocks/checklists';
 import RescheduleModal from './components/RescheduleModal';
 
@@ -82,6 +83,7 @@ export default function InspectionDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
   const [inspection, setInspection] = useState<InspectionDetail | null>(null);
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -306,7 +308,7 @@ export default function InspectionDetailPage() {
 
       const dest = inspection?.customer?.sip_uri || inspection?.customer?.phone;
       if (!dest) {
-        alert('No phone number or SIP URI on file for this customer.');
+        toast.warning('No phone number or SIP URI on file for this customer.');
         setCallingCustomer(false);
         return;
       }
@@ -329,16 +331,16 @@ export default function InspectionDetailPage() {
 
       if (data?.success) {
         const method = data?.usingSip ? 'SIP' : 'phone';
-        alert(`Call initiated via ${method}! Your phone will ring first, then connect you to ${inspection?.customer?.name || 'the customer'}.`);
+        toast.success(`Call initiated via ${method}! Your phone will ring first, then connect you to ${inspection?.customer?.name || 'the customer'}.`);
       } else {
-        alert('Call failed: ' + (data?.error || 'Unknown error'));
+        toast.error('Call failed: ' + (data?.error || 'Unknown error'));
       }
     } catch {
       // Fallback: try native dialer
       if (inspection?.customer?.phone) {
         window.location.href = `tel:${inspection.customer.phone}`;
       } else {
-        alert('Call failed. No fallback available for SIP-only customers.');
+        toast.error('Call failed. No fallback available for SIP-only customers.');
       }
     } finally {
       setCallingCustomer(false);
@@ -347,7 +349,7 @@ export default function InspectionDetailPage() {
 
   const emailReport = () => {
     if (!inspection?.customer?.email) {
-      alert('No customer email on file for this inspection.');
+      toast.warning('No customer email on file for this inspection.');
       return;
     }
     setEmailSending(true);
@@ -383,9 +385,9 @@ export default function InspectionDetailPage() {
       if (error) {
         throw error;
       }
-      alert('Inspection report email sent successfully.');
+      toast.success('Inspection report email sent successfully.');
     }).catch((err: any) => {
-      alert(err?.message || 'Failed to send email.');
+      toast.error(err?.message || 'Failed to send email.');
     }).finally(() => {
       setEmailSending(false);
     });

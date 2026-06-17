@@ -27,7 +27,7 @@ body {
 /* Touch-friendly tap targets */
 @media (max-width: 1023px) {
   button, a, [role="button"] {
-    min-height: 36px;
+    min-height: 40px;
   }
 }
 
@@ -48,6 +48,17 @@ body {
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 

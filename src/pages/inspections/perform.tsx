@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/feature/DashboardLayout';
 import GpsCheckIn from '@/components/feature/GpsCheckIn';
 import { supabase } from '@/lib/supabase';
+import { persist } from '@/lib/offlineMutation';
 import { useAuth } from '@/context';
 import {
   initChecklistItems,
@@ -265,7 +266,7 @@ export default function PerformInspectionPage() {
     setBatchInspections((prev) => prev.map((bi) => { if (bi.id !== inspectionId) return bi; return { ...bi, items: bi.items.map((item) => { if (item.id !== itemId) return item; const nr = { ...item.result, [field]: value }; if (field === 'status' && value !== 'fail') nr.fail_reason = undefined; return { ...item, result: nr }; }) }; }));
   };
 
-  const handleSave = async () => { setError(''); setSuccess(''); setSaving(true); try { if (isBatch) { for (const bi of batchInspections) { const { error: ue } = await supabase.from('inspections').update({ checklist_data: bi.items }).eq('id', bi.id); if (ue) throw ue; } } else { const { error: ue } = await supabase.from('inspections').update({ checklist_data: items }).eq('id', id); if (ue) throw ue; } setSuccess('Checklist saved.'); setTimeout(() => setSuccess(''), 2000); } catch (err: any) { setError(err.message || 'Failed to save'); } finally { setSaving(false); } };
+  const handleSave = async () => { setError(''); setSuccess(''); setSaving(true); try { let queuedAny = false; if (isBatch) { for (const bi of batchInspections) { const r = await persist('inspections', 'update', { id: bi.id, checklist_data: bi.items }); if (r.error) throw r.error; if (r.queued) queuedAny = true; } } else { const r = await persist('inspections', 'update', { id, checklist_data: items }); if (r.error) throw r.error; if (r.queued) queuedAny = true; } setSuccess(queuedAny ? 'Saved offline — will sync when reconnected.' : 'Checklist saved.'); setTimeout(() => setSuccess(''), 2500); } catch (err: any) { setError(err.message || 'Failed to save'); } finally { setSaving(false); } };
 
   const handleComplete = async () => {
     if (!techSignature || !customerSignature) { setShowSignatureModal(true); setSignatureStep('tech'); return; }
@@ -281,12 +282,15 @@ export default function PerformInspectionPage() {
       setCompleting(true);
       try {
         const findings = generateBatchFindings(batchInspections, summary);
+        let queuedAny = false;
         for (const bi of batchInspections) {
           const biSummary = computeChecklistSummary(bi.items);
-          await supabase.from('inspections').update({ status: 'completed', completed_date: new Date().toISOString(), rating: checklistToOverallRating(biSummary), checklist_data: bi.items, findings, signature_tech: techSignature || null, signature_customer: customerSignature || null }).eq('id', bi.id);
+          const r = await persist('inspections', 'update', { id: bi.id, status: 'completed', completed_date: new Date().toISOString(), rating: checklistToOverallRating(biSummary), checklist_data: bi.items, findings, signature_tech: techSignature || null, signature_customer: customerSignature || null });
+          if (r.error) throw r.error;
+          if (r.queued) queuedAny = true;
         }
         for (const bi of batchInspections) { scheduleNextInspection(bi.assetId, bi.customerId, bi.assetType, batchInspectionType); }
-        setSuccess(`Batch completed — ${batchInspections.length} items.`);
+        setSuccess(queuedAny ? `Batch saved offline — ${batchInspections.length} items will sync when reconnected.` : `Batch completed — ${batchInspections.length} items.`);
         setTimeout(() => navigate(`/inspections/${id}`), 1500);
       } catch (err: any) { setError(err.message || 'Failed.'); }
       finally { setCompleting(false); }
@@ -296,9 +300,10 @@ export default function PerformInspectionPage() {
       setCompleting(true);
       try {
         const findings = generateFindings(items, summary);
-        await supabase.from('inspections').update({ status: 'completed', completed_date: new Date().toISOString(), rating: checklistToOverallRating(summary), checklist_data: items, findings, signature_tech: techSignature || null, signature_customer: customerSignature || null }).eq('id', id);
+        const r = await persist('inspections', 'update', { id, status: 'completed', completed_date: new Date().toISOString(), rating: checklistToOverallRating(summary), checklist_data: items, findings, signature_tech: techSignature || null, signature_customer: customerSignature || null });
+        if (r.error) throw r.error;
         scheduleNextInspection(assetId, customerId, assetType, inspectionType);
-        setSuccess('Inspection completed!');
+        setSuccess(r.queued ? 'Saved offline — will sync when reconnected.' : 'Inspection completed!');
         setInspectionStatus('completed');
         setTimeout(() => navigate(`/inspections/${id}`), 1500);
       } catch (err: any) { setError(err.message || 'Failed.'); }

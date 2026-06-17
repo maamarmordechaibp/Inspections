@@ -7,10 +7,16 @@ i18n
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
-    lng: 'en',
     fallbackLng: 'en',
+    supportedLngs: ['en', 'es'],
+    nonExplicitSupportedLngs: true,
     debug: false,
     resources: messages,
+    detection: {
+      order: ['localStorage', 'navigator'],
+      lookupLocalStorage: 'dousefire_lang',
+      caches: ['localStorage'],
+    },
     interpolation: {
       escapeValue: false,
     },

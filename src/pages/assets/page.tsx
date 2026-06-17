@@ -1,10 +1,13 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import DashboardLayout from '@/components/feature/DashboardLayout';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
+import { useToast } from '@/context/ToastContext';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import QuickScheduleSingle from './components/QuickScheduleSingle';
+
+const BarcodeScanner = lazy(() => import('@/components/feature/BarcodeScanner'));
 
 const statusFilters = ['All', 'Active', 'Maintenance', 'Retired'];
 
@@ -61,6 +64,8 @@ interface InspectionRecord {
 
 export default function AssetsPage() {
   const { user } = useAuth();
+  const toast = useToast();
+  const navigate = useNavigate();
   const [assets, setAssets] = useState<Asset[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [inspections, setInspections] = useState<InspectionRecord[]>([]);
@@ -85,6 +90,28 @@ export default function AssetsPage() {
 
   // Quick Schedule state
   const [quickScheduleAsset, setQuickScheduleAsset] = useState<Asset | null>(null);
+
+  // Barcode/QR scanner state
+  const [showScanner, setShowScanner] = useState(false);
+
+  const handleScanDetected = useCallback((value: string) => {
+    setShowScanner(false);
+    const code = value.trim();
+    if (!code) return;
+    const match = assets.find(
+      (a) =>
+        a.serial_number?.toLowerCase() === code.toLowerCase() ||
+        a.id === code ||
+        a.name?.toLowerCase() === code.toLowerCase()
+    );
+    if (match) {
+      toast.success(`Found ${match.name}`);
+      navigate(`/assets/${match.id}`);
+    } else {
+      setSearch(code);
+      toast.info(`No asset matched "${code}". Showing search results.`);
+    }
+  }, [assets, navigate, toast]);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -503,6 +530,15 @@ export default function AssetsPage() {
                       className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-gray-200 text-sm focus:outline-none focus:border-brand-gold focus:ring-2 focus:ring-brand-gold/15 transition-all"
                     />
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowScanner(true)}
+                    aria-label="Scan asset QR code or barcode"
+                    className="flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <i className="ri-qr-scan-2-line text-base"></i>
+                    <span className="hidden sm:inline">Scan</span>
+                  </button>
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
@@ -751,6 +787,16 @@ export default function AssetsPage() {
           onClose={() => setQuickScheduleAsset(null)}
           onScheduled={() => fetchAll()}
         />
+
+        {/* Barcode / QR Scanner */}
+        {showScanner && (
+          <Suspense fallback={null}>
+            <BarcodeScanner
+              onDetected={handleScanDetected}
+              onClose={() => setShowScanner(false)}
+            />
+          </Suspense>
+        )}
       </div>
     </DashboardLayout>
   );

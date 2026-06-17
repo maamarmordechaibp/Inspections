@@ -5,6 +5,7 @@ import DashboardLayout from '@/components/feature/DashboardLayout';
 import QuickSchedule from '@/pages/customers/components/QuickSchedule';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
+import { useToast } from '@/context/ToastContext';
 
 interface Customer {
   id: string;
@@ -82,6 +83,7 @@ export default function CustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const toast = useToast();
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [inspections, setInspections] = useState<InspectionRecord[]>([]);
@@ -237,7 +239,7 @@ export default function CustomerDetailPage() {
 
       const dest = customer?.sip_uri || customer?.phone;
       if (!dest) {
-        alert('No phone number or SIP URI on file for this customer.');
+        toast.warning('No phone number or SIP URI on file for this customer.');
         setCallingCustomer(false);
         return;
       }
@@ -260,16 +262,16 @@ export default function CustomerDetailPage() {
 
       if (data?.success) {
         const method = data?.usingSip ? 'SIP' : 'phone';
-        alert(`Call initiated via ${method}! Your phone will ring first, then connect you to ${customer?.name || 'the customer'}.`);
+        toast.success(`Call initiated via ${method}! Your phone will ring first, then connect you to ${customer?.name || 'the customer'}.`);
       } else {
-        alert('Call failed: ' + (data?.error || 'Unknown error'));
+        toast.error('Call failed: ' + (data?.error || 'Unknown error'));
       }
     } catch {
       // Fallback: try native dialer
       if (customer?.phone) {
         window.location.href = `tel:${customer.phone}`;
       } else {
-        alert('Call failed. No fallback available for SIP-only customers.');
+        toast.error('Call failed. No fallback available for SIP-only customers.');
       }
     } finally {
       setCallingCustomer(false);
@@ -278,7 +280,7 @@ export default function CustomerDetailPage() {
 
   const emailReportSummary = () => {
     if (!customer?.email) {
-      alert('No customer email on file.');
+      toast.warning('No customer email on file.');
       return;
     }
     setEmailSending(true);
@@ -317,9 +319,9 @@ export default function CustomerDetailPage() {
       if (error) {
         throw error;
       }
-      alert('Summary email sent successfully.');
+      toast.success('Summary email sent successfully.');
     }).catch((err: any) => {
-      alert(err?.message || 'Failed to send email.');
+      toast.error(err?.message || 'Failed to send email.');
     }).finally(() => {
       setEmailSending(false);
     });
@@ -528,7 +530,7 @@ export default function CustomerDetailPage() {
               <button
                 onClick={() => {
                   const portalUrl = `${window.location.origin}/portal`;
-                  navigator.clipboard.writeText(portalUrl).then(() => alert('Portal URL copied to clipboard!'));
+                  navigator.clipboard.writeText(portalUrl).then(() => toast.success('Portal URL copied to clipboard!'));
                 }}
                 className="px-4 py-2 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap flex items-center gap-1.5"
               >

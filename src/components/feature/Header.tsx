@@ -1,10 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context';
 import { useNotifications } from '@/hooks/useNotifications';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 
 export default function Header() {
+  const { t, i18n } = useTranslation();
   const { user, logout } = useAuth();
   const { notifications, unreadCount, loading: notifLoading, markAsRead, markAllAsRead } = useNotifications();
+  const { isOnline, pendingCount, syncing, syncNow } = useOfflineSync();
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
@@ -45,13 +49,45 @@ export default function Header() {
         </div>
 
         <div className="flex items-center gap-1 md:gap-3">
+          {/* Offline / sync status */}
+          {(!isOnline || pendingCount > 0) && (
+            <button
+              onClick={() => { if (isOnline && pendingCount > 0) syncNow(); }}
+              disabled={!isOnline || syncing}
+              title={!isOnline ? 'You are offline — changes are saved locally' : syncing ? 'Syncing…' : `${pendingCount} change(s) waiting to sync — tap to sync now`}
+              aria-label={!isOnline ? 'Offline' : `${pendingCount} changes pending sync`}
+              className={`flex items-center gap-1.5 h-9 px-2.5 rounded-lg transition-colors cursor-pointer ${
+                !isOnline
+                  ? 'bg-amber-50 text-amber-700'
+                  : 'bg-brand-cyan/10 text-brand-cyan hover:bg-brand-cyan/20'
+              }`}
+            >
+              <i
+                className={`text-base ${
+                  !isOnline
+                    ? 'ri-cloud-off-line'
+                    : syncing
+                    ? 'ri-loader-4-line animate-spin'
+                    : 'ri-refresh-line'
+                }`}
+              ></i>
+              {pendingCount > 0 && (
+                <span className="text-xs font-bold leading-none">{pendingCount > 99 ? '99+' : pendingCount}</span>
+              )}
+              {!isOnline && <span className="hidden sm:inline text-xs font-semibold">Offline</span>}
+            </button>
+          )}
+
           {/* Notification Bell */}
           <div className="relative" ref={notifDropdownRef}>
             <button
               onClick={() => { setNotifDropdownOpen(!notifDropdownOpen); setUserDropdownOpen(false); }}
+              aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+              aria-haspopup="true"
+              aria-expanded={notifDropdownOpen}
               className="relative w-9 h-9 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer"
             >
-              <i className="ri-notification-3-line text-gray-500 text-base md:text-lg"></i>
+              <i className="ri-notification-3-line text-gray-500 text-base md:text-lg" aria-hidden="true"></i>
               {unreadCount > 0 && (
                 <span className="absolute top-1 right-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-1 shadow-[0_0_0_2px_rgba(255,255,255,1)]">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -145,6 +181,9 @@ export default function Header() {
           <div className="relative" ref={userDropdownRef}>
             <button
               onClick={() => { setUserDropdownOpen(!userDropdownOpen); setNotifDropdownOpen(false); }}
+              aria-label="Account menu"
+              aria-haspopup="true"
+              aria-expanded={userDropdownOpen}
               className="flex items-center gap-2 p-1.5 pr-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-brand-cyan/15 text-brand-cyan flex items-center justify-center text-xs font-bold">
@@ -171,13 +210,39 @@ export default function Header() {
                   <i className="ri-settings-3-line text-base w-5 h-5 flex items-center justify-center"></i>
                   Preferences
                 </button>
+
+                {/* Language switcher */}
+                <div className="border-t border-gray-50 my-1" />
+                <div className="px-4 py-2">
+                  <p className="text-[11px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">{t('common.language')}</p>
+                  <div className="flex gap-1">
+                    {([
+                      { code: 'en', label: 'English' },
+                      { code: 'es', label: 'Español' },
+                    ] as const).map((l) => (
+                      <button
+                        key={l.code}
+                        onClick={() => i18n.changeLanguage(l.code)}
+                        aria-pressed={i18n.resolvedLanguage === l.code}
+                        className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                          i18n.resolvedLanguage === l.code
+                            ? 'bg-brand-navy text-white'
+                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                        }`}
+                      >
+                        {l.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="border-t border-gray-50 my-1" />
                 <button
                   onClick={logout}
                   className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                 >
                   <i className="ri-logout-box-line text-base w-5 h-5 flex items-center justify-center"></i>
-                  Sign Out
+                  {t('action.signOut')}
                 </button>
               </div>
             )}

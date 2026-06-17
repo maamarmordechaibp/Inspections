@@ -1,35 +1,31 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/context';
 import { useNeedsSchedulingCount } from '@/hooks/useNeedsSchedulingCount';
 import Logo from '@/components/base/Logo';
 
-const navItems: { path: string; icon: string; label: string; allowedRoles: string[] }[] = [
-  { path: '/', icon: 'ri-dashboard-line', label: 'Dashboard', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/inspections', icon: 'ri-clipboard-line', label: 'Inspections', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/customers', icon: 'ri-building-2-line', label: 'Customers', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/schedule', icon: 'ri-calendar-line', label: 'Schedule', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/assets', icon: 'ri-tools-line', label: 'Assets', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/recurring-schedules', icon: 'ri-calendar-check-line', label: 'Recurring', allowedRoles: ['admin', 'manager'] },
-  { path: '/deficiencies', icon: 'ri-error-warning-line', label: 'Deficiencies', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/proposals', icon: 'ri-file-list-line', label: 'Proposals', allowedRoles: ['admin', 'manager'] },
-  { path: '/work-orders', icon: 'ri-hammer-line', label: 'Work Orders', allowedRoles: ['admin', 'manager', 'technician'] },
-  { path: '/invoices', icon: 'ri-bill-line', label: 'Invoices', allowedRoles: ['admin', 'manager'] },
-  { path: '/reports', icon: 'ri-file-chart-line', label: 'Reports', allowedRoles: ['admin', 'manager'] },
-  { path: '/compliance', icon: 'ri-shield-check-line', label: 'Compliance', allowedRoles: ['admin', 'manager'] },
-  { path: '/users', icon: 'ri-team-line', label: 'Users', allowedRoles: ['admin'] },
-  { path: '/audit-logs', icon: 'ri-history-line', label: 'Audit Logs', allowedRoles: ['admin'] },
-  { path: '/dispatch', icon: 'ri-radar-line', label: 'Dispatch', allowedRoles: ['admin', 'manager'] },
+const navItems: { path: string; icon: string; label: string; labelKey: string; allowedRoles: string[] }[] = [
+  { path: '/', icon: 'ri-dashboard-line', label: 'Dashboard', labelKey: 'nav.dashboard', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/inspections', icon: 'ri-clipboard-line', label: 'Inspections', labelKey: 'nav.inspections', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/customers', icon: 'ri-building-2-line', label: 'Customers', labelKey: 'nav.customers', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/schedule', icon: 'ri-calendar-line', label: 'Schedule', labelKey: 'nav.schedule', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/assets', icon: 'ri-tools-line', label: 'Assets', labelKey: 'nav.assets', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/recurring-schedules', icon: 'ri-calendar-check-line', label: 'Recurring', labelKey: 'nav.recurring', allowedRoles: ['admin', 'manager'] },
+  { path: '/deficiencies', icon: 'ri-error-warning-line', label: 'Deficiencies', labelKey: 'nav.deficiencies', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/proposals', icon: 'ri-file-list-line', label: 'Proposals', labelKey: 'nav.proposals', allowedRoles: ['admin', 'manager'] },
+  { path: '/work-orders', icon: 'ri-hammer-line', label: 'Work Orders', labelKey: 'nav.workOrders', allowedRoles: ['admin', 'manager', 'technician'] },
+  { path: '/invoices', icon: 'ri-bill-line', label: 'Invoices', labelKey: 'nav.invoices', allowedRoles: ['admin', 'manager'] },
+  { path: '/reports', icon: 'ri-file-chart-line', label: 'Reports', labelKey: 'nav.reports', allowedRoles: ['admin', 'manager'] },
+  { path: '/compliance', icon: 'ri-shield-check-line', label: 'Compliance', labelKey: 'nav.compliance', allowedRoles: ['admin', 'manager'] },
+  { path: '/users', icon: 'ri-team-line', label: 'Users', labelKey: 'nav.users', allowedRoles: ['admin'] },
+  { path: '/audit-logs', icon: 'ri-history-line', label: 'Audit Logs', labelKey: 'nav.auditLogs', allowedRoles: ['admin'] },
+  { path: '/dispatch', icon: 'ri-radar-line', label: 'Dispatch', labelKey: 'nav.dispatch', allowedRoles: ['admin', 'manager'] },
 ];
-
-const roleLabels = {
-  admin: 'Administrator',
-  manager: 'Manager',
-  technician: 'Technician',
-};
 
 export default function Sidebar() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const { count: needsSchedulingCount } = useNeedsSchedulingCount();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -70,7 +66,7 @@ export default function Sidebar() {
             </span>
             {!collapsed && (
               <span className="flex items-center gap-2 flex-1">
-                <span>{item.label}</span>
+                <span>{t(item.labelKey, item.label)}</span>
                 {item.path === '/' && needsSchedulingCount > 0 && (
                   <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-1.5">
                     {badgeCount}
@@ -85,17 +81,18 @@ export default function Sidebar() {
       <div className="px-3 py-4 border-t border-white/5">
         {!collapsed && user && (
           <div className="px-3 py-2 mb-2">
-            <p className="text-white/30 text-[10px] uppercase tracking-wider">{roleLabels[user.role]}</p>
+            <p className="text-white/30 text-[10px] uppercase tracking-wider">{t(`role.${user.role}`)}</p>
           </div>
         )}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           className="hidden lg:flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-white/40 hover:text-white hover:bg-white/5 w-full transition-all duration-200"
         >
           <span className="w-8 h-8 flex items-center justify-center">
             <i className={`text-lg ${collapsed ? 'ri-menu-unfold-line' : 'ri-menu-fold-line'}`}></i>
           </span>
-          {!collapsed && <span>Collapse</span>}
+          {!collapsed && <span>{t('common.collapse')}</span>}
         </button>
 
         <button
@@ -105,7 +102,7 @@ export default function Sidebar() {
           <span className="w-8 h-8 flex items-center justify-center">
             <i className="ri-close-line text-lg"></i>
           </span>
-          <span>Close Menu</span>
+          <span>{t('action.close')}</span>
         </button>
       </div>
     </div>
@@ -144,7 +141,7 @@ export default function Sidebar() {
       </button>
 
       {/* Mobile bottom nav bar */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 flex items-center justify-around px-1 py-1.5 safe-bottom">
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-200 flex items-center justify-around px-1 py-1.5 safe-bottom" aria-label="Primary">
         {navItems
           .filter((item) => user && item.allowedRoles.includes(user.role))
           .slice(0, 5)
@@ -164,17 +161,18 @@ export default function Sidebar() {
             <span className="w-5 h-5 flex items-center justify-center">
               <i className={`${item.icon} text-lg`}></i>
             </span>
-            <span className="text-[10px] font-medium leading-none whitespace-nowrap">{item.label}</span>
+            <span className="text-[10px] font-medium leading-none whitespace-nowrap">{t(item.labelKey, item.label)}</span>
           </NavLink>
         ))}
         <button
           onClick={() => setMobileOpen(true)}
+          aria-label="More menu"
           className="flex flex-col items-center gap-0.5 px-1 py-1 min-w-0 rounded-lg text-gray-400 hover:text-gray-600 transition-colors"
         >
           <span className="w-5 h-5 flex items-center justify-center">
             <i className="ri-more-line text-lg"></i>
           </span>
-          <span className="text-[10px] font-medium leading-none whitespace-nowrap">More</span>
+          <span className="text-[10px] font-medium leading-none whitespace-nowrap">{t('common.more')}</span>
         </button>
       </nav>
     </>

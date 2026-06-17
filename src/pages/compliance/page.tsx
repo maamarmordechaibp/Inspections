@@ -252,6 +252,15 @@ export default function CompliancePage() {
                           </td>
                         </tr>
                       ))}
+                      {standards.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-12 text-center">
+                            <i className="ri-shield-check-line text-2xl text-gray-300"></i>
+                            <p className="text-sm font-medium text-gray-900 mt-2">No compliance standards yet</p>
+                            <p className="text-sm text-gray-400 mt-1">Standards will appear here once they are configured for your assets.</p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -295,6 +304,15 @@ export default function CompliancePage() {
                           </td>
                         </tr>
                       ))}
+                      {issues.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-12 text-center">
+                            <i className="ri-checkbox-circle-line text-2xl text-emerald-300"></i>
+                            <p className="text-sm font-medium text-gray-900 mt-2">No open compliance issues</p>
+                            <p className="text-sm text-gray-400 mt-1">Great work — everything is currently within compliance.</p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
