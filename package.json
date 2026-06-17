@@ -14,6 +14,7 @@
     "recharts": "3.2.0"
   },
   "devDependencies": {
+    "@cloudflare/vite-plugin": "^1.41.0",
     "@eslint/js": "^9.30.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
@@ -30,7 +31,8 @@
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.35.1",
     "unplugin-auto-import": "^19.3.0",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wrangler": "^4.101.0"
   },
   "name": "react",
   "private": true,
@@ -38,8 +40,9 @@
     "build": "vite build",
     "dev": "vite",
     "lint": "eslint src --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview",
-    "type-check": "tsc --noEmit --project tsconfig.app.json"
+    "preview": "npm run build && wrangler dev",
+    "type-check": "tsc --noEmit --project tsconfig.app.json",
+    "deploy": "npm run build && wrangler deploy"
   },
   "type": "module",
   "version": "0.0.0"
