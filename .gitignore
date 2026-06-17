@@ -1,6 +1,13 @@
 # Dependencies
 node_modules/
 
+# Lock file is intentionally not committed: it is generated per-platform and a
+# Windows-generated lock omits Linux-only optional deps (@emnapi/* via
+# @rolldown/binding-wasm32-wasi), which breaks `npm ci` on the Linux CI runner.
+# Without a committed lock, Cloudflare runs `npm install`, which resolves
+# correctly on its own platform. The registry is pinned in .npmrc.
+package-lock.json
+
 # Build output
 out/
 dist/
