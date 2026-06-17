@@ -76,6 +76,9 @@ function nfpaStandardFor(type: string): string | null {
   return null;
 }
 
+/** Exported for unit testing. */
+export const __nfpaStandardFor = nfpaStandardFor;
+
 function esc(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')

@@ -24,6 +24,9 @@ function looksLikeNetworkError(err: unknown): boolean {
   );
 }
 
+/** Exported for unit testing. */
+export const __looksLikeNetworkError = looksLikeNetworkError;
+
 /**
  * Run a Supabase write that survives offline use.
  *
