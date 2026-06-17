@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getAuthRedirectUrl } from '@/lib/authUrls';
 import { useAuth } from '@/context';
 import DashboardLayout from '@/components/feature/DashboardLayout';
 
@@ -189,7 +190,7 @@ export default function UsersPage() {
           password: newPassword,
           options: {
             data: { full_name: newFullName.trim() },
-            emailRedirectTo: `${window.location.origin}${__BASE_PATH__}/login`,
+            emailRedirectTo: getAuthRedirectUrl('/login'),
           },
         });
 

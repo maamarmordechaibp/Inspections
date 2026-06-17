@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getAuthRedirectUrl } from '@/lib/authUrls';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface User {
@@ -166,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         type: 'signup',
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}${__BASE_PATH__}/login`,
+          emailRedirectTo: getAuthRedirectUrl('/login'),
         },
       });
 

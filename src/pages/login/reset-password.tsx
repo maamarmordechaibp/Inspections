@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
+import type { EmailOtpType } from '@supabase/supabase-js';
 import Logo from '@/components/base/Logo';
 
 export default function ResetPasswordPage() {
@@ -16,43 +17,85 @@ export default function ResetPasswordPage() {
   const [linkError, setLinkError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Check if Supabase returned an error in the URL hash (e.g. otp_expired)
-    const hash = window.location.hash;
-    if (hash) {
-      const params = new URLSearchParams(hash.replace(/^#/, ''));
-      const errorCode = params.get('error_code');
-      const errorDesc = params.get('error_description');
+    let active = true;
+
+    const setSessionState = (sessionExists: boolean) => {
+      if (!active) return;
+      setHasSession(sessionExists);
+      setCheckingSession(false);
+    };
+
+    const clearAuthParamsFromUrl = () => {
+      const cleanUrl = `${window.location.origin}${window.location.pathname}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    };
+
+    const resolveRecoverySession = async () => {
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const searchParams = new URLSearchParams(window.location.search);
+
+      const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+      const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
       if (errorCode) {
         const msg = errorDesc
           ? decodeURIComponent(errorDesc.replace(/\+/g, ' '))
           : 'This reset link is invalid or has expired.';
-        setLinkError(msg);
-        setCheckingSession(false);
+        if (active) {
+          setLinkError(msg);
+          setSessionState(false);
+        }
         return;
       }
-    }
 
-    // Supabase automatically detects the access_token in the hash and sets up a session
-    // We wait for the auth state to change or check for existing session
+      try {
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+        const code = searchParams.get('code');
+        const tokenHash = searchParams.get('token_hash');
+        const otpType = (searchParams.get('type') || 'recovery') as EmailOtpType;
+
+        if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) throw error;
+          clearAuthParamsFromUrl();
+        } else if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+          clearAuthParamsFromUrl();
+        } else if (tokenHash && otpType === 'recovery') {
+          const { error } = await supabase.auth.verifyOtp({
+            type: 'recovery',
+            token_hash: tokenHash,
+          });
+          if (error) throw error;
+          clearAuthParamsFromUrl();
+        }
+
+        const { data: { session } } = await supabase.auth.getSession();
+        setSessionState(Boolean(session));
+      } catch (err: any) {
+        if (active) {
+          setLinkError(err?.message || 'This reset link is invalid or has expired.');
+          setSessionState(false);
+        }
+      }
+    };
+
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY' && session) {
-        setHasSession(true);
-        setCheckingSession(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        setHasSession(true);
+      if (!active) return;
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setHasSession(Boolean(session));
         setCheckingSession(false);
       }
     });
 
-    // Also check for existing session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setHasSession(true);
-      }
-      setCheckingSession(false);
-    });
+    resolveRecoverySession();
 
     return () => {
+      active = false;
       authListener.subscription.unsubscribe();
     };
   }, []);
