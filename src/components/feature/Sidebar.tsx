@@ -39,7 +39,7 @@ export default function Sidebar() {
         {collapsed && <Logo variant="icon" light className="mx-auto" />}
       </div>
 
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" data-tour="nav">
         {navItems
           .filter((item) => user && item.allowedRoles.includes(user.role))
           .map((item) => (
@@ -48,6 +48,7 @@ export default function Sidebar() {
             to={item.path}
             end={item.path === '/'}
             onClick={() => setMobileOpen(false)}
+            data-tour={`nav-${item.path.replace(/^\//, '') || 'dashboard'}`}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 whitespace-nowrap group ${
                 isActive

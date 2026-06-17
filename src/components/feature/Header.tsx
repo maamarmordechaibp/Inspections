@@ -78,6 +78,17 @@ export default function Header() {
             </button>
           )}
 
+          {/* Help / replay tour */}
+          <button
+            onClick={() => window.dispatchEvent(new Event('dousefire:start-tour'))}
+            data-tour="header-help"
+            title={t('common.help', 'Help & guided tour')}
+            aria-label={t('common.help', 'Help and guided tour')}
+            className="w-9 h-9 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <i className="ri-question-line text-gray-500 text-base md:text-lg" aria-hidden="true"></i>
+          </button>
+
           {/* Notification Bell */}
           <div className="relative" ref={notifDropdownRef}>
             <button
@@ -85,6 +96,7 @@ export default function Header() {
               aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
               aria-haspopup="true"
               aria-expanded={notifDropdownOpen}
+              data-tour="header-notifications"
               className="relative w-9 h-9 rounded-lg hover:bg-gray-50 flex items-center justify-center transition-colors cursor-pointer"
             >
               <i className="ri-notification-3-line text-gray-500 text-base md:text-lg" aria-hidden="true"></i>
@@ -184,6 +196,7 @@ export default function Header() {
               aria-label="Account menu"
               aria-haspopup="true"
               aria-expanded={userDropdownOpen}
+              data-tour="header-user"
               className="flex items-center gap-2 p-1.5 pr-2 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
             >
               <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-brand-cyan/15 text-brand-cyan flex items-center justify-center text-xs font-bold">

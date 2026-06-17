@@ -1,6 +1,7 @@
 import { useAuth } from '@/context';
 import Sidebar from './Sidebar';
 import Header from './Header';
+import OnboardingTour from './OnboardingTour';
 import { Navigate } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
@@ -29,6 +30,7 @@ export default function DashboardLayout({ children, allowedRoles }: DashboardLay
           {children}
         </main>
       </div>
+      <OnboardingTour />
     </div>
   );
 }
