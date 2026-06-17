@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { portalClient } from '@/lib/portalClient';
 import Logo from '@/components/base/Logo';
 
 interface PortalCustomer {
@@ -56,6 +56,10 @@ type PortalTab = 'dashboard' | 'inspections' | 'invoices' | 'payments' | 'reques
 export default function CustomerPortalPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customer, setCustomer] = useState<PortalCustomer | null>(null);
@@ -69,10 +73,10 @@ export default function CustomerPortalPage() {
 
   const loadCustomerData = useCallback(async (customerId: string) => {
     try {
-      const { data: cust } = await supabase.from('customers').select('*').eq('id', customerId).maybeSingle();
+      const { data: cust } = await portalClient.from('customers').select('*').eq('id', customerId).maybeSingle();
       if (cust) setCustomer(cust as PortalCustomer);
 
-      const { data: inspData } = await supabase
+      const { data: inspData } = await portalClient
         .from('inspections')
         .select('id, scheduled_date, completed_date, status, inspection_type, rating, findings, assets:asset_id (name, type)')
         .eq('customer_id', customerId)
@@ -91,7 +95,7 @@ export default function CustomerPortalPage() {
         })));
       }
 
-      const { data: invData } = await supabase
+      const { data: invData } = await portalClient
         .from('invoices')
         .select('id, invoice_number, title, total, status, due_date, paid_at, line_items')
         .eq('customer_id', customerId)
@@ -109,7 +113,7 @@ export default function CustomerPortalPage() {
         })));
       }
 
-      const { data: payData } = await supabase
+      const { data: payData } = await portalClient
         .from('payments')
         .select('id, amount, status, description, created_at, invoice_id, stripe_payment_intent_id, invoices:invoice_id (invoice_number, title)')
         .eq('customer_id', customerId)
@@ -132,36 +136,98 @@ export default function CustomerPortalPage() {
     }
   }, []);
 
-  // Try to restore from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem('portal_customer_id');
-    if (saved) loadCustomerData(saved);
+  // Resolve the customer record that belongs to the signed-in email, then load data.
+  const loadForSignedInEmail = useCallback(async (signedInEmail: string): Promise<boolean> => {
+    const { data } = await portalClient
+      .from('customers')
+      .select('id, name, company, address, city, state, zip, phone, email, contact_name')
+      .ilike('email', signedInEmail)
+      .maybeSingle();
+    if (!data) return false;
+    setCustomer(data as PortalCustomer);
+    await loadCustomerData(data.id);
+    return true;
   }, [loadCustomerData]);
 
-  const handleLogin = async () => {
+  // Restore an existing portal session (isolated from the staff dashboard session).
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const { data: { session } } = await portalClient.auth.getSession();
+        const sessionEmail = session?.user?.email;
+        if (sessionEmail && active) {
+          const ok = await loadForSignedInEmail(sessionEmail);
+          if (!ok) await portalClient.auth.signOut();
+        }
+      } finally {
+        if (active) setRestoring(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [loadForSignedInEmail]);
+
+  // Step 1 — email a one-time verification code.
+  const handleSendCode = async () => {
     setError('');
     if (!email.trim()) { setError('Please enter your email address.'); return; }
     setLoading(true);
     try {
-      const { data, error: fetchErr } = await supabase.from('customers').select('id, name, company, address, city, state, zip, phone, email, contact_name').ilike('email', email.trim()).maybeSingle();
-      if (fetchErr) throw fetchErr;
-      if (!data) { setError('No customer account found with that email. Please contact your fire protection provider.'); setLoading(false); return; }
-      setCustomer(data as PortalCustomer);
-      localStorage.setItem('portal_customer_id', data.id);
-      loadCustomerData(data.id);
+      const { error: otpErr } = await portalClient.auth.signInWithOtp({
+        email: email.trim(),
+        options: { shouldCreateUser: true },
+      });
+      if (otpErr) throw otpErr;
+      setOtpSent(true);
     } catch {
-      setError('Unable to access portal. Please try again later.');
+      setError('Unable to send a verification code right now. Please try again later.');
     } finally {
       setLoading(false);
     }
   };
 
+  // Step 2 — verify the code, then confirm the email belongs to a customer.
+  const handleVerifyCode = async () => {
+    setError('');
+    const code = otpCode.trim();
+    if (!code) { setError('Enter the 6-digit code from your email.'); return; }
+    setVerifying(true);
+    try {
+      const { data, error: verifyErr } = await portalClient.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: 'email',
+      });
+      if (verifyErr || !data?.user?.email) {
+        setError('That code is invalid or has expired. Please request a new one.');
+        return;
+      }
+      const ok = await loadForSignedInEmail(data.user.email);
+      if (!ok) {
+        await portalClient.auth.signOut();
+        setError('No customer account is linked to that email. Please contact your fire protection provider.');
+      }
+    } catch {
+      setError('Unable to verify the code. Please try again.');
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  const resetLogin = () => {
+    setOtpSent(false);
+    setOtpCode('');
+    setError('');
+  };
+
   const handleLogout = () => {
+    portalClient.auth.signOut();
     setCustomer(null);
     setInspections([]);
     setInvoices([]);
     setPayments([]);
-    localStorage.removeItem('portal_customer_id');
+    setEmail('');
+    resetLogin();
   };
 
   const handleRequestSubmit = async () => {
@@ -169,7 +235,7 @@ export default function CustomerPortalPage() {
     setSubmitting(true);
     setSubmitSuccess('');
     try {
-      const { error: reqErr } = await supabase.from('service_requests').insert({
+      const { error: reqErr } = await portalClient.from('service_requests').insert({
         customer_id: customer.id,
         title: requestForm.title,
         description: requestForm.description || null,
@@ -205,6 +271,13 @@ export default function CustomerPortalPage() {
 
   // ─── LOGIN SCREEN ───
   if (!customer) {
+    if (restoring) {
+      return (
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <span className="w-8 h-8 border-2 border-brand-navy/20 border-t-brand-navy rounded-full animate-spin"></span>
+        </div>
+      );
+    }
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
@@ -223,31 +296,67 @@ export default function CustomerPortalPage() {
               </div>
             )}
             <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-gray-600 block mb-1.5">Email Address</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
-                  placeholder="your@company.com"
-                  className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/15 focus:border-brand-gold"
-                />
-              </div>
-              <button
-                onClick={handleLogin}
-                disabled={loading}
-                className="w-full px-4 py-3 rounded-lg bg-brand-navy text-white text-sm font-semibold hover:bg-brand-navy/90 transition-colors cursor-pointer disabled:opacity-50"
-              >
-                {loading ? (
-                  <span className="flex items-center gap-2 justify-center">
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                    Accessing Portal...
-                  </span>
-                ) : (
-                  'Access My Portal'
-                )}
-              </button>
+              {!otpSent ? (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendCode()}
+                      placeholder="your@company.com"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/15 focus:border-brand-gold"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSendCode}
+                    disabled={loading}
+                    className="w-full px-4 py-3 rounded-lg bg-brand-navy text-white text-sm font-semibold hover:bg-brand-navy/90 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2 justify-center">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Sending code...
+                      </span>
+                    ) : (
+                      'Send Verification Code'
+                    )}
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 block mb-1.5">Verification Code</label>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      onKeyDown={(e) => e.key === 'Enter' && handleVerifyCode()}
+                      placeholder="123456"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-200 text-center text-lg tracking-[0.4em] font-semibold focus:outline-none focus:ring-2 focus:ring-brand-gold/15 focus:border-brand-gold"
+                    />
+                    <p className="text-xs text-gray-400 mt-1.5">We sent a 6-digit code to <span className="font-medium text-gray-600">{email}</span>.</p>
+                  </div>
+                  <button
+                    onClick={handleVerifyCode}
+                    disabled={verifying}
+                    className="w-full px-4 py-3 rounded-lg bg-brand-navy text-white text-sm font-semibold hover:bg-brand-navy/90 transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {verifying ? (
+                      <span className="flex items-center gap-2 justify-center">
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                        Verifying...
+                      </span>
+                    ) : (
+                      'Verify & Enter Portal'
+                    )}
+                  </button>
+                  <button onClick={resetLogin} className="w-full text-xs text-gray-500 hover:text-brand-navy cursor-pointer">Use a different email</button>
+                </>
+              )}
             </div>
             <p className="text-xs text-gray-400 text-center mt-4">Enter the email address on file with your fire protection provider.</p>
           </div>

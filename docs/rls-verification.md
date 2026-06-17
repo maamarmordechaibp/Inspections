@@ -101,36 +101,63 @@ node scripts/verify-rls.mjs --authenticated
 
 ## 5. Open findings (from `node --use-system-ca scripts/verify-rls.mjs`)
 
-> Last run flagged **2 anon-readable tables**: `inspections` and `invoices`.
+> Initial run flagged **2 anon-readable tables**: `inspections` and `invoices`.
 
-**Root cause:** the customer portal (`src/pages/portal/page.tsx`) authenticates a
-customer only by typing an email, then reads `inspections` and `invoices` with the
+**Root cause:** the customer portal (`src/pages/portal/page.tsx`) authenticated a
+customer only by typing an email, then read `inspections` and `invoices` with the
 public **anon** key, filtering by `customer_id` *on the client*. The matching anon
-`SELECT` policy therefore exposes **every** customer's inspections and invoices to
+`SELECT` policy therefore exposed **every** customer's inspections and invoices to
 anyone holding the (browser-shipped) anon key — not just their own rows.
 
-**Remediation options (pick one):**
+### Fix shipped in the app (code)
 
-1. **Recommended — move portal reads server-side.** Add a Supabase Edge Function
-   (service-role) that verifies the customer's identity (magic-link / OTP emailed
-   to the customer's on-file address) and returns only that customer's rows. Then
-   drop the anon `SELECT` policy on `inspections` and `invoices`:
-   ```sql
-   -- after the edge function is live and the portal calls it:
-   drop policy if exists "anon read inspections" on public.inspections;
-   drop policy if exists "anon read invoices"    on public.invoices;
-   -- keep staff/authenticated policies in place
-   ```
-2. **Auth-based portal.** Give portal customers real Supabase Auth accounts and
-   scope policies to their `customer_id`:
-   ```sql
-   create policy "customer reads own inspections" on public.inspections
-     for select to authenticated
-     using (customer_id = (select customer_id from public.profiles where id = auth.uid()));
-   ```
+The portal now verifies the customer's identity with a **one-time email code**
+(Supabase built-in email OTP) before showing any data:
 
-Do **not** simply drop the anon policy without (1) or (2) first — it will break the
-portal's inspection/invoice tabs.
+- New isolated client `src/lib/portalClient.ts` (separate `storageKey`) so a
+  customer's portal session never collides with a staff dashboard session.
+- `src/pages/portal/page.tsx` now does `signInWithOtp` → `verifyOtp`, then reads
+  every table through the authenticated portal client. Reads are scoped by RLS to
+  the signed-in customer instead of being filtered only in the browser.
+
+### Required dashboard step (run this SQL, then re-probe)
+
+The code change only takes effect once the **authenticated** policies below exist
+and the **anon** leak policies are dropped. Run in Supabase → SQL Editor:
+
+```sql
+-- 1) Let a verified portal customer read ONLY their own rows.
+--    auth.email() is the email they proved ownership of via the OTP.
+create policy "portal reads self customer" on public.customers
+  for select to authenticated
+  using (lower(email) = lower(auth.email()));
+
+create policy "portal reads own inspections" on public.inspections
+  for select to authenticated
+  using (customer_id in (select id from public.customers where lower(email) = lower(auth.email())));
+
+create policy "portal reads own invoices" on public.invoices
+  for select to authenticated
+  using (customer_id in (select id from public.customers where lower(email) = lower(auth.email())));
+
+create policy "portal reads own payments" on public.payments
+  for select to authenticated
+  using (customer_id in (select id from public.customers where lower(email) = lower(auth.email())));
+
+create policy "portal creates own requests" on public.service_requests
+  for insert to authenticated
+  with check (customer_id in (select id from public.customers where lower(email) = lower(auth.email())));
+
+-- 2) Remove the permissive anon SELECT policies that leaked data.
+--    Find the exact names first with the query in section 3b, then:
+drop policy if exists "<anon select policy on inspections>" on public.inspections;
+drop policy if exists "<anon select policy on invoices>"    on public.invoices;
+```
+
+> Keep the existing **staff** policies (admin/manager/technician) intact — these
+> new policies are additive and only grant a portal customer access to their own
+> rows. Do not drop the anon policies *before* adding the authenticated ones or
+> the portal tabs will go blank.
 
 ## 6. Sign-off checklist
 
