@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const BRAND_APP_URL = Deno.env.get("BRAND_APP_URL") || "https://new.maamarmordechai.org";
-const BRAND_LOGO_URL = Deno.env.get("BRAND_LOGO_URL") || `${BRAND_APP_URL.replace(/\/$/, "")}/logo-email.svg`;
+const BRAND_LOGO_URL = Deno.env.get("BRAND_LOGO_URL") || `${BRAND_APP_URL.replace(/\/$/, "")}/logo-email.png`;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
