@@ -277,15 +277,18 @@ export default function CustomerDetailPage() {
   };
 
   const emailReportSummary = () => {
-    if (!customer?.email) return;
+    if (!customer?.email) {
+      alert('No customer email on file.');
+      return;
+    }
     setEmailSending(true);
 
     const completed = inspections.filter((i) => i.status === 'completed');
     const pending = inspections.filter((i) => i.status === 'scheduled' || i.status === 'overdue');
     const passed = completed.filter((i) => i.rating === 'pass').length;
 
-    const subject = encodeURIComponent(`DouseFire Inspection Summary — ${customer.name}`);
-    const body = encodeURIComponent(
+    const subject = `DouseFire Inspection Summary — ${customer.name}`;
+    const body = (
       `Dear ${customer.contact_name || 'Customer'},\n\n` +
       `Here is your fire safety inspection summary for ${customer.name}:\n\n` +
       `${'─'.repeat(40)}\n` +
@@ -303,8 +306,23 @@ export default function CustomerDetailPage() {
       `— The DouseFire Team`
     );
 
-    window.location.href = `mailto:${customer.email}?subject=${subject}&body=${body}`;
-    setTimeout(() => setEmailSending(false), 500);
+    supabase.functions.invoke('send-generic-email', {
+      body: {
+        to: customer.email,
+        subject,
+        headline: 'Inspection Summary',
+        message: body,
+      },
+    }).then(({ error }) => {
+      if (error) {
+        throw error;
+      }
+      alert('Summary email sent successfully.');
+    }).catch((err: any) => {
+      alert(err?.message || 'Failed to send email.');
+    }).finally(() => {
+      setEmailSending(false);
+    });
   };
 
   const openEdit = () => {
@@ -907,9 +925,7 @@ export default function CustomerDetailPage() {
                 {customer.email && (
                   <div>
                     <p className="text-xs text-gray-400 uppercase tracking-wider">Email</p>
-                    <a href={`mailto:${customer.email}`} className="text-sm text-brand-gold hover:text-brand-navy mt-0.5 transition-colors">
-                      {customer.email}
-                    </a>
+                    <p className="text-sm text-gray-700 mt-0.5 break-all">{customer.email}</p>
                   </div>
                 )}
                 {customer.created_at && (

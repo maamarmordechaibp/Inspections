@@ -57,18 +57,18 @@ const CITIES = [
 ];
 
 const ASSET_TYPES = [
-  { type: "fire_extinguisher", base_names: ["FE", "EXT"], count_per_building: [3, 8] },
-  { type: "sprinkler_system", base_names: ["SP", "SPR"], count_per_building: [1, 3] },
-  { type: "fire_alarm", base_names: ["FA", "FACP"], count_per_building: [1, 2] },
-  { type: "fire_hydrant", base_names: ["FH", "HYD"], count_per_building: [1, 4] },
-  { type: "fire_hose", base_names: ["FH", "FHC"], count_per_building: [1, 3] },
-  { type: "standpipe", base_names: ["ST", "SP"], count_per_building: [1, 2] },
-  { type: "backflow_preventer", base_names: ["BF", "BFP"], count_per_building: [1, 2] },
-  { type: "fire_pump", base_names: ["FP", "PUMP"], count_per_building: [1, 1] },
-  { type: "emergency_lighting", base_names: ["EL", "EXIT"], count_per_building: [4, 12] },
-  { type: "smoke_control", base_names: ["SC", "SMP"], count_per_building: [1, 2] },
-  { type: "kitchen_suppression", base_names: ["KS", "KSC"], count_per_building: [1, 2] },
-  { type: "elevator_recall", base_names: ["ER", "ELV"], count_per_building: [1, 2] },
+  { type: "Extinguisher", base_names: ["FE", "EXT"], count_per_building: [3, 8] },
+  { type: "Sprinkler", base_names: ["SP", "SPR"], count_per_building: [1, 3] },
+  { type: "Alarm", base_names: ["FA", "FACP"], count_per_building: [1, 2] },
+  { type: "Hydrant", base_names: ["HY", "HYD"], count_per_building: [1, 4] },
+  { type: "Hose", base_names: ["HO", "HOS"], count_per_building: [1, 3] },
+  { type: "Backflow Preventer", base_names: ["BF", "BFP"], count_per_building: [1, 2] },
+  { type: "Fire Pump", base_names: ["FP", "PUMP"], count_per_building: [1, 1] },
+  { type: "Emergency Lighting", base_names: ["EL", "EXIT"], count_per_building: [4, 12] },
+  { type: "Smoke Control", base_names: ["SC", "SMP"], count_per_building: [1, 2] },
+  { type: "Kitchen Suppression", base_names: ["KS", "KSC"], count_per_building: [1, 2] },
+  { type: "Elevator Recall", base_names: ["ER", "ELV"], count_per_building: [1, 2] },
+  { type: "Monitoring System", base_names: ["MON", "MS"], count_per_building: [1, 2] },
 ];
 
 const MANUFACTURERS = [
@@ -78,18 +78,18 @@ const MANUFACTURERS = [
 ];
 
 const INSPECTION_TYPES: Record<string, string[]> = {
-  fire_extinguisher: ["Monthly Visual", "Annual Maintenance", "6-Year Teardown", "Hydrostatic Test"],
-  sprinkler_system: ["Quarterly Inspection", "Annual Main Drain Test", "5-Year Internal Inspection"],
-  fire_alarm: ["Semi-Annual Test", "Annual Inspection", "5-Year Sensitivity Test"],
-  fire_hydrant: ["Semi-Annual Flow Test", "Annual Inspection", "5-Year Pressure Test"],
-  fire_hose: ["Semi-Annual Inspection", "Annual Pressure Test", "3-Year Service Test"],
-  standpipe: ["Semi-Annual Flow Test", "Annual Inspection", "5-Year Hydrostatic"],
-  backflow_preventer: ["Annual Test", "5-Year Rebuild"],
-  fire_pump: ["Weekly Churn Test", "Monthly Inspection", "Annual Flow Test"],
-  emergency_lighting: ["Monthly 30-Second Test", "Annual 90-Minute Test"],
-  smoke_control: ["Semi-Annual Test", "Annual Integrated Test"],
-  kitchen_suppression: ["Semi-Annual Inspection", "Annual Fusible Link", "12-Year Hydrostatic"],
-  elevator_recall: ["Monthly Test", "Annual Integrated Test"],
+  Extinguisher: ["Monthly Visual", "Annual Maintenance", "6-Year Teardown", "Hydrostatic Test"],
+  Sprinkler: ["Quarterly Inspection", "Annual Main Drain Test", "5-Year Internal Inspection"],
+  Alarm: ["Semi-Annual Test", "Annual Inspection", "5-Year Sensitivity Test"],
+  Hydrant: ["Semi-Annual Flow Test", "Annual Inspection", "5-Year Pressure Test"],
+  Hose: ["Semi-Annual Inspection", "Annual Pressure Test", "3-Year Service Test"],
+  "Backflow Preventer": ["Annual Test", "5-Year Rebuild"],
+  "Fire Pump": ["Weekly Churn Test", "Monthly Inspection", "Annual Flow Test"],
+  "Emergency Lighting": ["Monthly 30-Second Test", "Annual 90-Minute Test"],
+  "Smoke Control": ["Semi-Annual Test", "Annual Integrated Test"],
+  "Kitchen Suppression": ["Semi-Annual Inspection", "Annual Fusible Link", "12-Year Hydrostatic"],
+  "Elevator Recall": ["Monthly Test", "Annual Integrated Test"],
+  "Monitoring System": ["Monthly Connectivity Test", "Quarterly Communication Audit", "Annual Certification"],
 };
 
 const FINDINGS_TEMPLATES: Record<string, string[]> = {
@@ -281,7 +281,7 @@ Deno.serve(async (_req: Request) => {
                 ? pick(["Main Lobby","Basement Mechanical Room","Roof Penthouse","2nd Floor Hallway","Parking Garage","Loading Dock","Server Room","Electrical Room","Kitchen Area","Main Corridor"])
                 : `Building ${buildingNum} - ${pick(["Lobby","Mechanical Room","Hallway","Stairwell","Basement","Penthouse","Utility Closet","Corridor"])}`,
               serial_number: serialNum,
-              status: Math.random() > 0.12 ? "active" : pick(["maintenance","out_of_service"]),
+              status: Math.random() > 0.12 ? "active" : pick(["maintenance", "retired"]),
               manufacturer: pick(MANUFACTURERS),
               install_date: dateStr(installDate),
               last_inspected: dateStr(lastInsp),

@@ -1,12 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   // ─── Auth Guard ──────────────────────────────────────────
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) {
     return new Response(
       JSON.stringify({ success: false, error: "Unauthorized — missing Authorization header" }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
@@ -14,7 +24,7 @@ serve(async (req) => {
   if (!token) {
     return new Response(
       JSON.stringify({ success: false, error: "Unauthorized — missing token" }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
@@ -32,7 +42,7 @@ serve(async (req) => {
   if (authError || !authData?.user) {
     return new Response(
       JSON.stringify({ success: false, error: "Unauthorized — invalid or expired token" }),
-      { status: 401, headers: { "Content-Type": "application/json" } }
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 
@@ -46,7 +56,7 @@ serve(async (req) => {
   if (!profile || profile.role !== "admin") {
     return new Response(
       JSON.stringify({ success: false, error: "Forbidden — admin access required" }),
-      { status: 403, headers: { "Content-Type": "application/json" } }
+      { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
   // ─── End Auth Guard ──────────────────────────────────────
@@ -60,7 +70,7 @@ serve(async (req) => {
         if (!email || !password || !full_name || !role) {
           return new Response(
             JSON.stringify({ success: false, error: "Missing required fields: email, password, full_name, role" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -68,7 +78,7 @@ serve(async (req) => {
         if (listErr) {
           return new Response(
             JSON.stringify({ success: false, error: `Auth list error: ${listErr.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -76,7 +86,7 @@ serve(async (req) => {
         if (exists) {
           return new Response(
             JSON.stringify({ success: false, error: "A user with this email already exists" }),
-            { status: 409, headers: { "Content-Type": "application/json" } }
+            { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -90,7 +100,7 @@ serve(async (req) => {
         if (error) {
           return new Response(
             JSON.stringify({ success: false, error: `Auth create error: ${error.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -113,13 +123,13 @@ serve(async (req) => {
                 created_at: data.user.created_at,
               },
             }),
-            { headers: { "Content-Type": "application/json" } }
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
         return new Response(
           JSON.stringify({ success: false, error: "User creation returned no user" }),
-          { status: 500, headers: { "Content-Type": "application/json" } }
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -127,7 +137,7 @@ serve(async (req) => {
         if (!user_id) {
           return new Response(
             JSON.stringify({ success: false, error: "Missing user_id" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -135,7 +145,7 @@ serve(async (req) => {
         if (profileErr) {
           return new Response(
             JSON.stringify({ success: false, error: `Profile delete error: ${profileErr.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -143,13 +153,13 @@ serve(async (req) => {
         if (authErr) {
           return new Response(
             JSON.stringify({ success: false, error: `Auth delete error: ${authErr.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
         return new Response(
           JSON.stringify({ success: true }),
-          { headers: { "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -157,7 +167,7 @@ serve(async (req) => {
         if (!user_id) {
           return new Response(
             JSON.stringify({ success: false, error: "Missing user_id" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -170,7 +180,7 @@ serve(async (req) => {
           if (authErr) {
             return new Response(
               JSON.stringify({ success: false, error: `Auth update error: ${authErr.message}` }),
-              { status: 500, headers: { "Content-Type": "application/json" } }
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
@@ -187,14 +197,14 @@ serve(async (req) => {
           if (profileErr) {
             return new Response(
               JSON.stringify({ success: false, error: `Profile update error: ${profileErr.message}` }),
-              { status: 500, headers: { "Content-Type": "application/json" } }
+              { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
             );
           }
         }
 
         return new Response(
           JSON.stringify({ success: true }),
-          { headers: { "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -202,7 +212,7 @@ serve(async (req) => {
         if (!user_id || !password) {
           return new Response(
             JSON.stringify({ success: false, error: "Missing user_id or password" }),
-            { status: 400, headers: { "Content-Type": "application/json" } }
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -213,13 +223,13 @@ serve(async (req) => {
         if (pwErr) {
           return new Response(
             JSON.stringify({ success: false, error: `Password change error: ${pwErr.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
         return new Response(
           JSON.stringify({ success: true }),
-          { headers: { "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
@@ -229,7 +239,7 @@ serve(async (req) => {
         if (error) {
           return new Response(
             JSON.stringify({ success: false, error: `Auth list error: ${error.message}` }),
-            { status: 500, headers: { "Content-Type": "application/json" } }
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
 
@@ -251,20 +261,20 @@ serve(async (req) => {
 
         return new Response(
           JSON.stringify({ success: true, users: merged }),
-          { headers: { "Content-Type": "application/json" } }
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
 
       default:
         return new Response(
           JSON.stringify({ success: false, error: "Invalid action. Use: create, delete, edit, change_password, list" }),
-          { status: 400, headers: { "Content-Type": "application/json" } }
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
     }
   } catch (err: any) {
     return new Response(
       JSON.stringify({ success: false, error: `Server error: ${err.message}` }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

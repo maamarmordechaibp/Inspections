@@ -353,8 +353,8 @@ export default function InspectionDetailPage() {
     setEmailSending(true);
 
     const summary = inspection.checklist_data ? computeChecklistSummary(inspection.checklist_data) : null;
-    const subject = encodeURIComponent(`DouseFire Inspection Report — ${inspection.asset_name}`);
-    const body = encodeURIComponent(
+    const subject = `DouseFire Inspection Report — ${inspection.asset_name}`;
+    const body = (
       `DOUSEFIRE INSPECTION REPORT\n` +
       `${'═'.repeat(50)}\n\n` +
       `Customer: ${inspection.customer?.name || 'N/A'}\n` +
@@ -372,8 +372,23 @@ export default function InspectionDetailPage() {
       `For questions, contact your DouseFire service representative.\n`
     );
 
-    window.location.href = `mailto:${inspection.customer.email}?subject=${subject}&body=${body}`;
-    setTimeout(() => setEmailSending(false), 500);
+    supabase.functions.invoke('send-generic-email', {
+      body: {
+        to: inspection.customer.email,
+        subject,
+        headline: 'Inspection Report',
+        message: body,
+      },
+    }).then(({ error }) => {
+      if (error) {
+        throw error;
+      }
+      alert('Inspection report email sent successfully.');
+    }).catch((err: any) => {
+      alert(err?.message || 'Failed to send email.');
+    }).finally(() => {
+      setEmailSending(false);
+    });
   };
 
   const downloadInspectionReport = () => {
@@ -900,9 +915,7 @@ ${checklistHtml}
                   {inspection.customer.email && (
                     <div>
                       <p className="text-xs text-gray-400">Email</p>
-                      <a href={`mailto:${inspection.customer.email}`} className="text-sm text-brand-gold hover:text-brand-navy transition-colors">
-                        {inspection.customer.email}
-                      </a>
+                      <p className="text-sm text-gray-700 break-all">{inspection.customer.email}</p>
                     </div>
                   )}
                   {inspection.customer.notes && (
