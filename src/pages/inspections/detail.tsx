@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
 import { useToast } from '@/context/ToastContext';
 import { computeChecklistSummary, type ChecklistItem } from '@/mocks/checklists';
+import { downloadInspectionReportHtml, openInspectionReportPrint } from '@/lib/inspectionReport';
 import RescheduleModal from './components/RescheduleModal';
 
 const statusStyles: Record<string, string> = {
@@ -35,6 +36,8 @@ interface InspectionDetail {
   findings: string | null;
   checklist_data: ChecklistItem[] | null;
   batch_id: string | null;
+  signature_tech: string | null;
+  signature_customer: string | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
   check_in_lat: number | null;
@@ -102,6 +105,7 @@ export default function InspectionDetailPage() {
           .select(`
             id, asset_id, customer_id, scheduled_date, completed_date, status,
             inspection_type, rating, findings, checklist_data, batch_id, inspector_id,
+            signature_tech, signature_customer,
             checked_in_at, checked_out_at, check_in_lat, check_in_lng, check_out_lat, check_out_lng,
             assets:asset_id (id, name, location, serial_number, manufacturer, install_date, status),
             profiles:inspector_id (full_name),
@@ -135,6 +139,8 @@ export default function InspectionDetailPage() {
           findings: item.findings,
           checklist_data: item.checklist_data || null,
           batch_id: item.batch_id || null,
+          signature_tech: item.signature_tech || null,
+          signature_customer: item.signature_customer || null,
           checked_in_at: item.checked_in_at || null,
           checked_out_at: item.checked_out_at || null,
           check_in_lat: item.check_in_lat ?? null,
@@ -221,6 +227,8 @@ export default function InspectionDetailPage() {
             findings: found.findings,
             checklist_data: null,
             batch_id: null,
+            signature_tech: null,
+            signature_customer: null,
             checked_in_at: null,
             checked_out_at: null,
             check_in_lat: null,
@@ -395,115 +403,15 @@ export default function InspectionDetailPage() {
 
   const downloadInspectionReport = () => {
     if (!inspection) return;
+    downloadInspectionReportHtml(inspection, asset);
+  };
 
-    const summary = inspection.checklist_data ? computeChecklistSummary(inspection.checklist_data) : null;
-    const now = new Date().toLocaleString('en-US');
-
-    const failReasonLabels: Record<string, string> = {
-      corroded: 'Corroded', damaged: 'Damaged', missing: 'Missing', leaking: 'Leaking',
-      obstructed: 'Obstructed', expired: 'Expired', painted: 'Painted', dirty: 'Dirty / Dust',
-      blocked: 'Blocked', low_pressure: 'Low Pressure', high_pressure: 'High Pressure',
-      not_functioning: 'Not Functioning', not_accessible: 'Not Accessible', tampered: 'Tampered',
-      wrong_type: 'Wrong Type', not_synchronized: 'Not Synchronized', low_volume: 'Low Volume',
-      low_battery: 'Low Battery', no_signal: 'No Signal', worn: 'Worn', loose: 'Loose',
-      incorrect_mounting: 'Incorrect Mounting',
-    };
-
-    let checklistHtml = '';
-    if (inspection.checklist_data && inspection.checklist_data.length > 0) {
-      const inspectedItems = inspection.checklist_data.filter((i: any) => i.result?.status !== 'not_applicable');
-      if (inspectedItems.length > 0) {
-        checklistHtml = `
-<div class="section">
-  <h2>Inspected Checklist Items</h2>
-  <table>
-    <thead><tr><th>#</th><th>Category</th><th>Item</th><th>Result</th><th>Deficiency</th><th>Value</th></tr></thead>
-    <tbody>
-      ${inspectedItems.map((item: any) => `
-      <tr>
-        <td>${item.id || ''}</td>
-        <td>${item.category || ''}</td>
-        <td>${item.description || ''}</td>
-        <td><span class="badge ${
-          item.result?.status === 'pass' ? 'badge-pass' :
-          item.result?.status === 'fail' ? 'badge-fail' :
-          'badge-pending'
-        }">${(item.result?.status || '').replace(/_/g, ' ')}</span></td>
-        <td>${item.result?.fail_reason ? (failReasonLabels[item.result.fail_reason] || item.result.fail_reason) : '—'}</td>
-        <td>${item.result?.value !== undefined ? `${item.result.value} ${item.unit || ''}` : '—'}</td>
-      </tr>`).join('')}
-    </tbody>
-  </table>
-</div>`;
-      }
+  const printInspectionReport = () => {
+    if (!inspection) return;
+    const opened = openInspectionReportPrint(inspection, asset);
+    if (!opened) {
+      toast.warning('Pop-up blocked. Allow pop-ups for this site, or use Download Report instead.');
     }
-
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><title>DouseFire Inspection Report</title>
-<style>
-  body { font-family: 'Segoe UI', system-ui, sans-serif; color: #0a1628; padding: 40px; max-width: 900px; margin: auto; }
-  .header { border-bottom: 3px solid #c9a227; padding-bottom: 20px; margin-bottom: 28px; }
-  .header h1 { font-size: 26px; color: #0a1628; margin: 0; }
-  .header .brand { font-size: 12px; color: #c9a227; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
-  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; padding: 20px; background: #f9fafb; border-radius: 8px; }
-  .meta-item { }
-  .meta-label { font-size: 10px; text-transform: uppercase; color: #9ca3af; font-weight: 700; }
-  .meta-value { font-size: 14px; color: #0a1628; font-weight: 500; margin-top: 2px; }
-  .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
-  .summary-stat { text-align: center; padding: 14px; background: #f9fafb; border-radius: 8px; }
-  .summary-stat .num { font-size: 24px; font-weight: 700; }
-  .summary-stat .lbl { font-size: 10px; color: #6b7280; text-transform: uppercase; }
-  .section { margin-bottom: 24px; }
-  .section h2 { font-size: 16px; border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin-bottom: 12px; }
-  .section p.finding { font-size: 14px; color: #4b5563; line-height: 1.7; white-space: pre-wrap; font-family: 'Courier New', monospace; background: #fafafa; padding: 16px; border-radius: 8px; border-left: 3px solid #c9a227; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 8px 10px; background: #f3f4f6; font-size: 10px; text-transform: uppercase; color: #374151; }
-  td { padding: 8px 10px; border-bottom: 1px solid #e5e7eb; color: #4b5563; }
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
-  .badge-pass { background: #d1fae5; color: #065f46; }
-  .badge-fail { background: #fee2e2; color: #991b1b; }
-  .badge-pending { background: #fef3c7; color: #92400e; }
-  .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
-</style></head>
-<body>
-<div class="header">
-  <h1>${inspection.asset_name} — Inspection Report</h1>
-  <div class="brand">DouseFire Inspection Management System</div>
-</div>
-<div class="meta">
-  <div class="meta-item"><div class="meta-label">Customer</div><div class="meta-value">${inspection.customer?.name || 'N/A'}</div></div>
-  <div class="meta-item"><div class="meta-label">Location</div><div class="meta-value">${inspection.asset_location}</div></div>
-  <div class="meta-item"><div class="meta-label">Inspection Type</div><div class="meta-value">${inspection.inspection_type}</div></div>
-  <div class="meta-item"><div class="meta-label">Inspector</div><div class="meta-value">${inspection.inspector_name}</div></div>
-  <div class="meta-item"><div class="meta-label">Scheduled</div><div class="meta-value">${new Date(inspection.scheduled_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</div></div>
-  <div class="meta-item"><div class="meta-label">Completed</div><div class="meta-value">${inspection.completed_date ? new Date(inspection.completed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'N/A'}</div></div>
-</div>
-${summary ? `
-<div class="summary">
-  <div class="summary-stat"><div class="num">${summary.applicable}</div><div class="lbl">Inspected</div></div>
-  <div class="summary-stat"><div class="num" style="color:#065f46">${summary.pass}</div><div class="lbl">Passed</div></div>
-  <div class="summary-stat"><div class="num" style="color:#991b1b">${summary.fail}</div><div class="lbl">Failed</div></div>
-  <div class="summary-stat"><div class="num" style="color:#92400e">${summary.needsAttention}</div><div class="lbl">Need Attn</div></div>
-  <div class="summary-stat"><div class="num">${summary.passRate}%</div><div class="lbl">Pass Rate</div></div>
-</div>` : ''}
-<div class="section">
-  <h2>Findings</h2>
-  <p class="finding">${inspection.findings || 'No detailed findings recorded.'}</p>
-</div>
-${checklistHtml}
-<div class="footer">Generated ${now} — DouseFire Inspection Management System</div>
-</body></html>`;
-
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `DouseFire-Inspection-${inspection.id.slice(0, 8)}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
   };
 
   const handleRescheduleConfirm = async (payload: { newDate: string; newTechnicianId?: string }) => {
@@ -790,8 +698,14 @@ ${checklistHtml}
                 <h3 className="text-sm font-semibold text-gray-900 mb-3 md:mb-4">Actions</h3>
                 <div className="flex flex-col sm:flex-row gap-2 md:gap-3">
                   <button
-                    onClick={downloadInspectionReport}
+                    onClick={printInspectionReport}
                     className="px-4 py-2 bg-brand-navy hover:bg-brand-navy/90 text-white text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <i className="ri-printer-line mr-1.5"></i> Print / Save PDF
+                  </button>
+                  <button
+                    onClick={downloadInspectionReport}
+                    className="px-4 py-2 border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg transition-colors cursor-pointer whitespace-nowrap"
                   >
                     <i className="ri-download-line mr-1.5"></i> Download Report
                   </button>

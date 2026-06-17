@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context';
 import type { DeficiencyItem } from '@/mocks/deficiencies';
 import { mockDeficiencies, severityStyles, statusStyles } from '@/mocks/deficiencies';
+import ConvertDeficiencyModal from './components/ConvertDeficiencyModal';
 
 const statusFilters = ['All', 'Open', 'In Progress', 'Resolved'];
 const severityFilters = ['All', 'Low', 'Medium', 'High', 'Critical'];
@@ -16,6 +17,10 @@ export default function DeficienciesPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [severityFilter, setSeverityFilter] = useState('All');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [convertTargets, setConvertTargets] = useState<DeficiencyItem[] | null>(null);
+
+  const canConvert = !!user && (user.role === 'admin' || user.role === 'manager');
 
   const fetchData = useCallback(async () => {
     try {
@@ -112,6 +117,36 @@ export default function DeficienciesPage() {
     }
   };
 
+  // ── Selection for bulk convert ──
+  const selectedDeficiencies = useMemo(
+    () => filtered.filter((d) => selectedIds.has(d.id)),
+    [filtered, selectedIds],
+  );
+  // Bulk convert requires a single customer (a proposal/work order belongs to one customer).
+  const selectionCustomerIds = useMemo(
+    () => new Set(selectedDeficiencies.map((d) => d.customer_id)),
+    [selectedDeficiencies],
+  );
+  const bulkConvertBlocked = selectionCustomerIds.size > 1;
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleConverted = (ids: string[]) => {
+    if (ids.length) {
+      setDeficiencies((prev) =>
+        prev.map((d) => (ids.includes(d.id) ? { ...d, status: 'in_progress' as any } : d)),
+      );
+    }
+    setSelectedIds(new Set());
+  };
+
   return (
     <DashboardLayout>
       <div className="max-w-[1400px] mx-auto">
@@ -141,6 +176,35 @@ export default function DeficienciesPage() {
             <p className="text-2xl font-bold text-brand-gold mt-1">${stats.revenue.toLocaleString()}</p>
           </div>
         </div>
+
+        {/* Bulk convert bar */}
+        {canConvert && selectedIds.size > 0 && (
+          <div className="sticky top-2 z-10 mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-brand-navy text-white rounded-xl px-4 py-3 shadow-lg">
+            <div className="flex items-center gap-2 text-sm">
+              <i className="ri-checkbox-multiple-line text-brand-gold"></i>
+              <span className="font-semibold">{selectedIds.size} selected</span>
+              {bulkConvertBlocked && (
+                <span className="text-amber-300 text-xs ml-1">· select one customer at a time to convert</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+              >
+                Clear
+              </button>
+              <button
+                disabled={bulkConvertBlocked}
+                onClick={() => setConvertTargets(selectedDeficiencies)}
+                className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-brand-gold text-brand-navy hover:bg-brand-gold/90 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                <i className="ri-money-dollar-circle-line"></i>
+                Convert to revenue
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex items-center justify-center h-48">
@@ -188,6 +252,11 @@ export default function DeficienciesPage() {
               <table className="w-full text-left min-w-[900px]">
                 <thead>
                   <tr className="border-b border-gray-100">
+                    {canConvert && (
+                      <th className="px-3 md:px-4 py-3 w-8">
+                        <span className="sr-only">Select</span>
+                      </th>
+                    )}
                     <th className="px-3 md:px-4 py-3 text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-3 md:px-4 py-3 text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
                     <th className="px-3 md:px-4 py-3 text-[10px] md:text-xs font-semibold text-gray-500 uppercase tracking-wider">Asset</th>
@@ -201,6 +270,18 @@ export default function DeficienciesPage() {
                 <tbody>
                   {filtered.map((d) => (
                     <tr key={d.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+                      {canConvert && (
+                        <td className="px-3 md:px-4 py-2.5 md:py-3">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(d.id)}
+                            onChange={() => toggleSelect(d.id)}
+                            disabled={d.status === 'resolved'}
+                            className="w-4 h-4 rounded border-gray-300 text-brand-navy focus:ring-brand-gold cursor-pointer disabled:opacity-30"
+                            aria-label={`Select deficiency: ${d.description.slice(0, 40)}`}
+                          />
+                        </td>
+                      )}
                       <td className="px-3 md:px-4 py-2.5 md:py-3">
                         <span className="text-xs md:text-sm text-gray-600">
                           {new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -237,6 +318,15 @@ export default function DeficienciesPage() {
                       </td>
                       <td className="px-3 md:px-4 py-2.5 md:py-3">
                         <div className="flex items-center gap-1">
+                          {d.status !== 'resolved' && canConvert && (
+                            <button
+                              onClick={() => setConvertTargets([d])}
+                              className="text-brand-gold hover:bg-brand-gold/10 rounded-md transition-colors cursor-pointer"
+                              title="Convert to proposal or work order"
+                            >
+                              <span className="w-6 h-6 md:w-7 md:h-7 flex items-center justify-center"><i className="ri-money-dollar-circle-line text-sm"></i></span>
+                            </button>
+                          )}
                           {d.status !== 'resolved' && user && (user.role === 'admin' || user.role === 'manager') && (
                             <>
                               {d.status === 'open' && (
@@ -268,7 +358,7 @@ export default function DeficienciesPage() {
                   ))}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={8} className="px-4 py-12 text-center">
+                      <td colSpan={canConvert ? 9 : 8} className="px-4 py-12 text-center">
                         <div className="text-gray-300 mb-2"><i className="ri-search-line text-3xl"></i></div>
                         <p className="text-sm text-gray-500">No deficiencies match your filters.</p>
                       </td>
@@ -280,6 +370,14 @@ export default function DeficienciesPage() {
           </div>
         )}
       </div>
+
+      {convertTargets && convertTargets.length > 0 && (
+        <ConvertDeficiencyModal
+          deficiencies={convertTargets}
+          onClose={() => setConvertTargets(null)}
+          onConverted={handleConverted}
+        />
+      )}
     </DashboardLayout>
   );
 }
