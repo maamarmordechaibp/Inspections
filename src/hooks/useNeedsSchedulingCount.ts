@@ -33,15 +33,22 @@ export function useNeedsSchedulingCount(): { count: number; loading: boolean } {
           return;
         }
 
-        // Get asset IDs that already have active inspections
+        // Query in chunks to avoid URL-length limits when many asset IDs are present.
         const assetIds = assets.map((a: any) => a.id);
-        const { data: activeInspections, error: inspErr } = await supabase
-          .from('inspections')
-          .select('asset_id')
-          .in('asset_id', assetIds)
-          .in('status', ['scheduled', 'in_progress']);
+        const chunkSize = 200;
+        const activeInspections: Array<{ asset_id: string }> = [];
 
-        if (inspErr) throw inspErr;
+        for (let i = 0; i < assetIds.length; i += chunkSize) {
+          const idsChunk = assetIds.slice(i, i + chunkSize);
+          const { data: chunkRows, error: chunkErr } = await supabase
+            .from('inspections')
+            .select('asset_id')
+            .in('asset_id', idsChunk)
+            .in('status', ['scheduled', 'in_progress']);
+
+          if (chunkErr) throw chunkErr;
+          if (chunkRows?.length) activeInspections.push(...chunkRows);
+        }
 
         // Count assets that DON'T have an active inspection
         const activeAssetIds = new Set((activeInspections || []).map((i: any) => i.asset_id));
